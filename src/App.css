@@ -1,0 +1,153 @@
+:root {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #111827;
+  background: #f4f6fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
+
+.auth {
+  max-width: 520px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.header-actions,
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.card {
+  background: white;
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.stat-card h2 {
+  font-size: 0.85rem;
+  margin: 0 0 0.4rem;
+  color: #6b7280;
+}
+
+.stat-card strong {
+  font-size: 1.4rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 980px) {
+  .layout {
+    grid-template-columns: minmax(340px, 400px) 1fr;
+  }
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.92rem;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+}
+
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: 0.94;
+}
+
+button.ghost {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+button.danger {
+  background: #dc2626;
+}
+
+.error {
+  color: #b91c1c;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.table-wrap {
+  overflow: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 860px;
+}
+
+th,
+td {
+  padding: 0.6rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.9rem;
+}
+
+ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
