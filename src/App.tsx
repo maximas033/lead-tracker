@@ -6,11 +6,13 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore'
 import {
   createUserWithEmailAndPassword,
@@ -577,6 +579,42 @@ function App() {
     }
   }
 
+  const deleteAllLeads = async () => {
+    if (!user) return
+    const ok = window.confirm('Delete ALL leads? This cannot be undone.')
+    if (!ok) return
+
+    const leadsRef = collection(db, 'users', user.uid, 'leads')
+    const snapshot = await getDocs(leadsRef)
+
+    if (snapshot.empty) {
+      setMessage('No leads to delete.')
+      return
+    }
+
+    let deleted = 0
+    let batch = writeBatch(db)
+    let opCount = 0
+
+    for (const row of snapshot.docs) {
+      batch.delete(row.ref)
+      opCount += 1
+      deleted += 1
+
+      if (opCount === 400) {
+        await batch.commit()
+        batch = writeBatch(db)
+        opCount = 0
+      }
+    }
+
+    if (opCount > 0) {
+      await batch.commit()
+    }
+
+    setMessage(`Deleted ${deleted} leads.`)
+  }
+
   const normalizeImportedLead = (row: Record<string, string>): LeadInput => {
     const yesNo = (value: string): YesNo =>
       value?.toLowerCase() === 'yes' ? 'Yes' : 'No'
@@ -745,11 +783,16 @@ function App() {
           <button className="ghost" onClick={seedData}>
             Load sample leads
           </button>
+          <button className="danger" onClick={deleteAllLeads}>
+            Delete all leads
+          </button>
           <button className="ghost" onClick={() => signOut(auth)}>
             Logout
           </button>
         </div>
       </header>
+
+      {message && <p className="muted">{message}</p>}
 
       {page === 'leads' ? (
         <>
