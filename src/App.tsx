@@ -298,6 +298,7 @@ function App() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [importStatus, setImportStatus] = useState('')
+  const [showLeadModal, setShowLeadModal] = useState(false)
   const [page, setPage] = useState<Page>('leads')
   const [selectedMonth, setSelectedMonth] = useState(toMonthValue(new Date()))
   const [selectedWeek, setSelectedWeek] = useState('1-7')
@@ -615,6 +616,7 @@ function App() {
 
       setForm(emptyLead)
       setEditingId(null)
+      setShowLeadModal(false)
     } catch (err) {
       const next = err instanceof Error ? err.message : 'Unable to save lead.'
       setMessage(next)
@@ -623,6 +625,7 @@ function App() {
 
   const onEdit = (lead: Lead) => {
     setEditingId(lead.id)
+    setShowLeadModal(true)
     setForm({
       date: lead.date,
       customer: lead.customer,
@@ -639,6 +642,12 @@ function App() {
       soldAmount: lead.soldAmount || '',
       revenue: lead.revenue || '',
     })
+  }
+
+  const openNewLeadModal = () => {
+    setEditingId(null)
+    setForm(emptyLead)
+    setShowLeadModal(true)
   }
 
   const onDelete = async (id: string) => {
@@ -876,6 +885,7 @@ function App() {
           >
             Weekly Dashboard
           </button>
+          <button onClick={openNewLeadModal}>Add lead</button>
           <button className="ghost" onClick={seedData}>
             Load sample leads
           </button>
@@ -929,213 +939,214 @@ function App() {
             {importStatus && <p className="muted">{importStatus}</p>}
           </section>
 
-          <section className="layout">
-            <form onSubmit={saveLead} className="card form-grid">
-              <h3>{editingId ? 'Edit Lead' : 'Add Lead'}</h3>
-              <label>
-                Date
-                <input
-                  required
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                />
-              </label>
-              <label>
-                Customer
-                <input
-                  required
-                  value={form.customer}
-                  onChange={(e) => setForm({ ...form, customer: e.target.value })}
-                />
-              </label>
-              <label>
-                Lead Source
-                <input
-                  required
-                  value={form.leadSource}
-                  onChange={(e) => setForm({ ...form, leadSource: e.target.value })}
-                />
-              </label>
-              <label>
-                Job Type
-                <input
-                  required
-                  value={form.jobType}
-                  onChange={(e) => setForm({ ...form, jobType: e.target.value })}
-                />
-              </label>
-              <label>
-                Lead Cost
-                <input
-                  placeholder="$0"
-                  value={form.leadCost}
-                  onChange={(e) => setForm({ ...form, leadCost: e.target.value })}
-                />
-              </label>
-              <label>
-                Booked
-                <select
-                  value={form.booked}
-                  onChange={(e) =>
-                    setForm({ ...form, booked: e.target.value as YesNo })
-                  }
-                >
-                  <option value="No">No</option>
-                  <option value="Yes">Yes</option>
-                </select>
-              </label>
-              <label>
-                Sold
-                <select
-                  value={form.sold}
-                  onChange={(e) => setForm({ ...form, sold: e.target.value as YesNo })}
-                >
-                  <option value="No">No</option>
-                  <option value="Yes">Yes</option>
-                </select>
-              </label>
-              <label>
-                Cancelled
-                <select
-                  value={form.cancelled}
-                  onChange={(e) =>
-                    setForm({ ...form, cancelled: e.target.value as YesNo })
-                  }
-                >
-                  <option value="No">No</option>
-                  <option value="Yes">Yes</option>
-                </select>
-              </label>
-              <label>
-                Sold Amount ($)
-                <input
-                  placeholder="$0"
-                  value={form.soldAmount}
-                  onChange={(e) =>
-                    setForm({ ...form, soldAmount: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Revenue ($)
-                <input
-                  placeholder="$0"
-                  value={form.revenue}
-                  onChange={(e) => setForm({ ...form, revenue: e.target.value })}
-                />
-              </label>
-              <label>
-                Reply Time Category
-                <select
-                  value={form.replyTimeCategory}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      replyTimeCategory: e.target.value as ReplyTimeCategory,
-                    })
-                  }
-                >
-                  <option value="7:00-3:30">7:00-3:30</option>
-                  <option value="3:00-6:00">3:00-6:00</option>
-                  <option value="After 6">After 6</option>
-                  <option value="Weekend">Weekend</option>
-                </select>
-              </label>
-              <label>
-                Reply Time (minutes)
-                <input
-                  type="number"
-                  min={0}
-                  placeholder="e.g. 25"
-                  value={form.replyTimeMinutes}
-                  onChange={(e) =>
-                    setForm({ ...form, replyTimeMinutes: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Comments
-                <textarea
-                  rows={3}
-                  value={form.comments}
-                  onChange={(e) => setForm({ ...form, comments: e.target.value })}
-                />
-              </label>
-              <div className="row">
-                <button type="submit">{editingId ? 'Update Lead' : 'Save Lead'}</button>
-                {editingId && (
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => {
-                      setEditingId(null)
-                      setForm(emptyLead)
-                    }}
-                  >
-                    Cancel Edit
-                  </button>
-                )}
-              </div>
-              {message && <p className="error">{message}</p>}
-            </form>
-
-            <div className="card table-wrap">
-              <h3>Leads</h3>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Customer</th>
-                    <th>Source</th>
-                    <th>Type</th>
-                    <th>Cost</th>
-                    <th>Booked</th>
-                    <th>Sold</th>
-                    <th>Cancelled</th>
-                    <th>Sold $</th>
-                    <th>Revenue</th>
-                    <th>Reply Window</th>
-                    <th>Reply (mins)</th>
-                    <th>Comments</th>
-                    <th />
+          <section className="card table-wrap">
+            <h3>Leads</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Customer</th>
+                  <th>Source</th>
+                  <th>Type</th>
+                  <th>Cost</th>
+                  <th>Booked</th>
+                  <th>Sold</th>
+                  <th>Cancelled</th>
+                  <th>Sold $</th>
+                  <th>Revenue</th>
+                  <th>Reply Window</th>
+                  <th>Reply (mins)</th>
+                  <th>Comments</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {leads.map((lead) => (
+                  <tr key={lead.id}>
+                    <td>{lead.date}</td>
+                    <td>{lead.customer}</td>
+                    <td>{lead.leadSource}</td>
+                    <td>{lead.jobType}</td>
+                    <td>{lead.leadCost}</td>
+                    <td>{lead.booked}</td>
+                    <td>{lead.sold}</td>
+                    <td>{lead.cancelled}</td>
+                    <td>{lead.soldAmount}</td>
+                    <td>{lead.revenue}</td>
+                    <td>{lead.replyTimeCategory}</td>
+                    <td>{getReplyMinutes(lead) ?? '-'}</td>
+                    <td>{lead.comments}</td>
+                    <td>
+                      <div className="row">
+                        <button className="ghost" onClick={() => onEdit(lead)}>
+                          Edit
+                        </button>
+                        <button
+                          className="danger"
+                          onClick={() => onDelete(lead.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {leads.map((lead) => (
-                    <tr key={lead.id}>
-                      <td>{lead.date}</td>
-                      <td>{lead.customer}</td>
-                      <td>{lead.leadSource}</td>
-                      <td>{lead.jobType}</td>
-                      <td>{lead.leadCost}</td>
-                      <td>{lead.booked}</td>
-                      <td>{lead.sold}</td>
-                      <td>{lead.cancelled}</td>
-                      <td>{lead.soldAmount}</td>
-                      <td>{lead.revenue}</td>
-                      <td>{lead.replyTimeCategory}</td>
-                      <td>{getReplyMinutes(lead) ?? '-'}</td>
-                      <td>{lead.comments}</td>
-                      <td>
-                        <div className="row">
-                          <button className="ghost" onClick={() => onEdit(lead)}>
-                            Edit
-                          </button>
-                          <button
-                            className="danger"
-                            onClick={() => onDelete(lead.id)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </section>
+
+          {showLeadModal && (
+            <div className="modal-overlay" onClick={() => setShowLeadModal(false)}>
+              <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
+                <div className="row modal-head">
+                  <h3>{editingId ? 'Edit Lead' : 'Add Lead'}</h3>
+                  <button className="ghost" onClick={() => setShowLeadModal(false)}>
+                    Close
+                  </button>
+                </div>
+                <form onSubmit={saveLead} className="form-grid">
+                  <label>
+                    Date
+                    <input
+                      required
+                      type="date"
+                      value={form.date}
+                      onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Customer
+                    <input
+                      required
+                      value={form.customer}
+                      onChange={(e) => setForm({ ...form, customer: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Lead Source
+                    <input
+                      required
+                      value={form.leadSource}
+                      onChange={(e) => setForm({ ...form, leadSource: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Job Type
+                    <input
+                      required
+                      value={form.jobType}
+                      onChange={(e) => setForm({ ...form, jobType: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Lead Cost
+                    <input
+                      placeholder="$0"
+                      value={form.leadCost}
+                      onChange={(e) => setForm({ ...form, leadCost: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Booked
+                    <select
+                      value={form.booked}
+                      onChange={(e) => setForm({ ...form, booked: e.target.value as YesNo })}
+                    >
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
+                  </label>
+                  <label>
+                    Sold
+                    <select
+                      value={form.sold}
+                      onChange={(e) => setForm({ ...form, sold: e.target.value as YesNo })}
+                    >
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
+                  </label>
+                  <label>
+                    Cancelled
+                    <select
+                      value={form.cancelled}
+                      onChange={(e) => setForm({ ...form, cancelled: e.target.value as YesNo })}
+                    >
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
+                  </label>
+                  <label>
+                    Sold Amount ($)
+                    <input
+                      placeholder="$0"
+                      value={form.soldAmount}
+                      onChange={(e) => setForm({ ...form, soldAmount: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Revenue ($)
+                    <input
+                      placeholder="$0"
+                      value={form.revenue}
+                      onChange={(e) => setForm({ ...form, revenue: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Reply Time Category
+                    <select
+                      value={form.replyTimeCategory}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          replyTimeCategory: e.target.value as ReplyTimeCategory,
+                        })
+                      }
+                    >
+                      <option value="7:00-3:30">7:00-3:30</option>
+                      <option value="3:00-6:00">3:00-6:00</option>
+                      <option value="After 6">After 6</option>
+                      <option value="Weekend">Weekend</option>
+                    </select>
+                  </label>
+                  <label>
+                    Reply Time (minutes)
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="e.g. 25"
+                      value={form.replyTimeMinutes}
+                      onChange={(e) => setForm({ ...form, replyTimeMinutes: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Comments
+                    <textarea
+                      rows={3}
+                      value={form.comments}
+                      onChange={(e) => setForm({ ...form, comments: e.target.value })}
+                    />
+                  </label>
+                  <div className="row">
+                    <button type="submit">{editingId ? 'Update Lead' : 'Save Lead'}</button>
+                    {editingId && (
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => {
+                          setEditingId(null)
+                          setForm(emptyLead)
+                          setShowLeadModal(false)
+                        }}
+                      >
+                        Cancel Edit
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 
           <section className="layout">
             <div className="card">
