@@ -20,6 +20,7 @@ import {
 } from 'firebase/auth'
 import type { User } from 'firebase/auth'
 import { auth, db } from './firebase'
+import * as XLSX from 'xlsx'
 
 type ReplyTimeCategory = '7:00-3:30' | '3:00-6:00' | 'After 6' | 'Weekend'
 type YesNo = 'Yes' | 'No'
@@ -144,6 +145,13 @@ const toMonthValue = (date: Date) =>
 
 const weekLabel = (startDay: number, endDay: number) => `${startDay}-${endDay}`
 
+const normalizeHeader = (value: string) =>
+  value
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, ' ')
+
 const csvToRows = (text: string) => {
   const lines = text
     .split(/\r?\n/)
@@ -152,7 +160,13 @@ const csvToRows = (text: string) => {
 
   if (lines.length < 2) return [] as Record<string, string>[]
 
+  const delimiter = lines[0].includes('\t') ? '\t' : ','
+
   const parseLine = (line: string) => {
+    if (delimiter === '\t') {
+      return line.split('\t').map((v) => v.trim())
+    }
+
     const values: string[] = []
     let current = ''
     let inQuotes = false
@@ -177,12 +191,12 @@ const csvToRows = (text: string) => {
     return values
   }
 
-  const headers = parseLine(lines[0]).map((h) => h.toLowerCase())
+  const headers = parseLine(lines[0]).map(normalizeHeader)
 
   return lines.slice(1).map((line) => {
     const cols = parseLine(line)
     return headers.reduce<Record<string, string>>((acc, h, idx) => {
-      acc[h] = cols[idx] ?? ''
+      acc[h] = (cols[idx] ?? '').trim()
       return acc
     }, {})
   })
@@ -567,24 +581,35 @@ function App() {
     const yesNo = (value: string): YesNo =>
       value?.toLowerCase() === 'yes' ? 'Yes' : 'No'
 
+    const pick = (...keys: string[]) => {
+      for (const key of keys) {
+        const value = row[normalizeHeader(key)]
+        if (value !== undefined && value !== '') return value
+      }
+      return ''
+    }
+
+    const rawCategory = pick('reply time category')
+    const allowed: ReplyTimeCategory[] = ['7:00-3:30', '3:00-6:00', 'After 6', 'Weekend']
+    const replyTimeCategory = allowed.includes(rawCategory as ReplyTimeCategory)
+      ? (rawCategory as ReplyTimeCategory)
+      : defaultReplyCategory
+
     return {
-      date: row.date || '',
-      customer: row.customer || row.name || '',
-      leadSource: row['lead source'] || row.leadsource || row.source || '',
-      jobType: row['job type'] || row.jobtype || '',
-      leadCost: row['lead cost'] || row.leadcost || row.cost || '$0',
-      jobWon: yesNo(row['job won'] || row.jobwon || row.sold || 'No'),
-      comments: row.comments || '',
-      replyTimeCategory:
-        (row['reply time category'] as ReplyTimeCategory) ||
-        (row.replytimecategory as ReplyTimeCategory) ||
-        defaultReplyCategory,
-      replyTimeMinutes: row['reply time minutes'] || row.replytimeminutes || '',
-      booked: yesNo(row.booked || 'No'),
-      sold: yesNo(row.sold || row['job won'] || 'No'),
-      cancelled: yesNo(row.cancelled || row.canceled || 'No'),
-      soldAmount: row['sold amount'] || row.soldamount || '$0',
-      revenue: row.revenue || '$0',
+      date: pick('date'),
+      customer: pick('customer', 'name'),
+      leadSource: pick('lead source', 'source'),
+      jobType: pick('job type'),
+      leadCost: pick('lead cost', 'cost') || '$0',
+      jobWon: yesNo(pick('job won', 'sold') || 'No'),
+      comments: pick('comments'),
+      replyTimeCategory,
+      replyTimeMinutes: pick('reply time minutes'),
+      booked: yesNo(pick('booked') || 'No'),
+      sold: yesNo(pick('sold', 'job won') || 'No'),
+      cancelled: yesNo(pick('cancelled', 'canceled') || 'No'),
+      soldAmount: pick('sold amount') || '$0',
+      revenue: pick('revenue') || '$0',
     }
   }
 
@@ -593,26 +618,41 @@ function App() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const text = await file.text()
+    setImportStatus(`Importing ${file.name}...`)
     const leadsRef = collection(db, 'users', user.uid, 'leads')
 
     try {
       let rows: Record<string, string>[] = []
+      const lowerName = file.name.toLowerCase()
 
-      if (file.name.toLowerCase().endsWith('.json')) {
-        const parsed = JSON.parse(text)
-        if (Array.isArray(parsed)) {
-          rows = parsed as Record<string, string>[]
-        }
+      if (lowerName.endsWith('.json')) {
+        const parsed = JSON.parse(await file.text())
+        if (Array.isArray(parsed)) rows = parsed as Record<string, string>[]
+      } else if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
+        const buffer = await file.arrayBuffer()
+        const workbook = XLSX.read(buffer, { type: 'array' })
+        const sheetName = workbook.SheetNames[0]
+        const sheet = workbook.Sheets[sheetName]
+        const jsonRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+          defval: '',
+        })
+        rows = jsonRows.map((r) => {
+          const normalized: Record<string, string> = {}
+          Object.entries(r).forEach(([key, value]) => {
+            normalized[normalizeHeader(String(key))] = String(value ?? '').trim()
+          })
+          return normalized
+        })
       } else {
-        rows = csvToRows(text)
+        rows = csvToRows(await file.text())
       }
 
       if (rows.length === 0) {
-        setImportStatus('No rows found. Check your file format.')
+        setImportStatus('No rows found. Check file headers and content.')
         return
       }
 
+      let importedCount = 0
       for (const row of rows) {
         const lead = normalizeImportedLead(row)
         if (!lead.date || !lead.customer) continue
@@ -623,12 +663,18 @@ function App() {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         })
+        importedCount += 1
       }
 
-      setImportStatus(`Imported ${rows.length} rows from ${file.name}`)
+      if (importedCount === 0) {
+        setImportStatus('Imported 0 rows. Make sure date + customer are present.')
+      } else {
+        setImportStatus(`Imported ${importedCount} leads from ${file.name}`)
+      }
+
       e.target.value = ''
     } catch {
-      setImportStatus('Import failed. Use CSV/JSON with matching headers.')
+      setImportStatus('Import failed. Use CSV, XLSX, or JSON with matching headers.')
     }
   }
 
@@ -734,12 +780,12 @@ function App() {
             <div>
               <h3>Import current leads</h3>
               <p className="muted">
-                Upload CSV or JSON. Minimum fields: <code>date</code>, <code>customer</code>, <code>lead source</code>.
+                Upload CSV, XLSX, or JSON. Minimum fields: <code>date</code>, <code>customer</code>, <code>lead source</code>.
               </p>
             </div>
             <label className="file-label">
               <span>Choose file</span>
-              <input type="file" accept=".csv,.json" onChange={handleFileImport} />
+              <input type="file" accept=".csv,.tsv,.xlsx,.xls,.json" onChange={handleFileImport} />
             </label>
             {importStatus && <p className="muted">{importStatus}</p>}
           </section>
