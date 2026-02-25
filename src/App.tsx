@@ -21,6 +21,8 @@ import {
 import type { User } from 'firebase/auth'
 import { auth, db } from './firebase'
 
+type ReplyTimeCategory = '7:00-3:30' | '3:00-6:00' | 'After 6' | 'Weekend'
+
 type Lead = {
   id: string
   date: string
@@ -30,10 +32,15 @@ type Lead = {
   leadCost: string
   jobWon: 'Yes' | 'No'
   comments: string
-  replyTime: string
+  replyTimeCategory: ReplyTimeCategory
+  replyTimeMinutes: string
+  // legacy field support
+  replyTime?: string
 }
 
 type LeadInput = Omit<Lead, 'id'>
+
+const defaultReplyCategory: ReplyTimeCategory = '7:00-3:30'
 
 const emptyLead: LeadInput = {
   date: '',
@@ -43,7 +50,8 @@ const emptyLead: LeadInput = {
   leadCost: '',
   jobWon: 'No',
   comments: '',
-  replyTime: '',
+  replyTimeCategory: defaultReplyCategory,
+  replyTimeMinutes: '',
 }
 
 const starterLeads: LeadInput[] = [
@@ -55,7 +63,8 @@ const starterLeads: LeadInput[] = [
     leadCost: '$0',
     jobWon: 'Yes',
     comments: 'Hold wants to cancel',
-    replyTime: '',
+    replyTimeCategory: '7:00-3:30',
+    replyTimeMinutes: '',
   },
   {
     date: '2026-02-01',
@@ -65,7 +74,8 @@ const starterLeads: LeadInput[] = [
     leadCost: '$0',
     jobWon: 'No',
     comments: 'Customer said, "Sorry, I no longer need this service"',
-    replyTime: '(Weekend): 214',
+    replyTimeCategory: 'Weekend',
+    replyTimeMinutes: '214',
   },
   {
     date: '2026-02-01',
@@ -75,7 +85,8 @@ const starterLeads: LeadInput[] = [
     leadCost: '$0',
     jobWon: 'No',
     comments: 'Building energy audit - Broken waterheater',
-    replyTime: '(Weekend): 1',
+    replyTimeCategory: 'Weekend',
+    replyTimeMinutes: '1',
   },
 ]
 
@@ -84,9 +95,16 @@ const parseCost = (leadCost: string) => {
   return Number.isFinite(value) ? value : 0
 }
 
-const parseReplyTime = (replyTime: string) => {
-  const found = replyTime.match(/\d+/)
-  return found ? Number(found[0]) : null
+const getReplyMinutes = (lead: Lead) => {
+  const fromNew = Number(lead.replyTimeMinutes)
+  if (Number.isFinite(fromNew) && fromNew >= 0) return fromNew
+
+  if (lead.replyTime) {
+    const found = lead.replyTime.match(/\d+/)
+    if (found) return Number(found[0])
+  }
+
+  return null
 }
 
 function App() {
@@ -117,10 +135,30 @@ function App() {
 
     const unsub = onSnapshot(q, (snapshot) => {
       const rows: Lead[] = snapshot.docs.map((item) => {
-        const data = item.data() as LeadInput
+        const data = item.data() as Partial<LeadInput> & { replyTime?: string }
+
+        // backward compatibility with old text-only replyTime field
+        const replyTimeCategory =
+          data.replyTimeCategory ||
+          (data.replyTime?.toLowerCase().includes('weekend')
+            ? 'Weekend'
+            : defaultReplyCategory)
+
+        const replyTimeMinutes =
+          data.replyTimeMinutes || data.replyTime?.match(/\d+/)?.[0] || ''
+
         return {
           id: item.id,
-          ...data,
+          date: data.date || '',
+          customer: data.customer || '',
+          leadSource: data.leadSource || '',
+          jobType: data.jobType || '',
+          leadCost: data.leadCost || '',
+          jobWon: data.jobWon === 'Yes' ? 'Yes' : 'No',
+          comments: data.comments || '',
+          replyTimeCategory,
+          replyTimeMinutes,
+          replyTime: data.replyTime,
         }
       })
       setLeads(rows)
@@ -136,7 +174,7 @@ function App() {
     const winRate = totalLeads > 0 ? (wonLeads / totalLeads) * 100 : 0
 
     const replyTimes = leads
-      .map((lead) => parseReplyTime(lead.replyTime))
+      .map((lead) => getReplyMinutes(lead))
       .filter((value): value is number => value !== null)
 
     const avgReplyTime =
@@ -154,6 +192,25 @@ function App() {
       return acc
     }, {})
 
+    const avgReplyByCategory = leads.reduce<
+      Record<ReplyTimeCategory, { sum: number; count: number }>
+    >(
+      (acc, lead) => {
+        const mins = getReplyMinutes(lead)
+        if (mins === null) return acc
+        const category = lead.replyTimeCategory || defaultReplyCategory
+        acc[category].sum += mins
+        acc[category].count += 1
+        return acc
+      },
+      {
+        '7:00-3:30': { sum: 0, count: 0 },
+        '3:00-6:00': { sum: 0, count: 0 },
+        'After 6': { sum: 0, count: 0 },
+        Weekend: { sum: 0, count: 0 },
+      },
+    )
+
     return {
       totalLeads,
       wonLeads,
@@ -162,6 +219,7 @@ function App() {
       avgReplyTime,
       bySource,
       byJobType,
+      avgReplyByCategory,
     }
   }, [leads])
 
@@ -219,7 +277,8 @@ function App() {
       leadCost: lead.leadCost,
       jobWon: lead.jobWon,
       comments: lead.comments,
-      replyTime: lead.replyTime,
+      replyTimeCategory: lead.replyTimeCategory || defaultReplyCategory,
+      replyTimeMinutes: lead.replyTimeMinutes || '',
     })
   }
 
@@ -324,8 +383,7 @@ function App() {
         </article>
         <article className="stat-card">
           <h2>Avg Reply Time</h2>
-          <strong>{stats.avgReplyTime.toFixed(1)}</strong>
-          <small>(numbers parsed from Reply Time text)</small>
+          <strong>{stats.avgReplyTime.toFixed(1)} mins</strong>
         </article>
       </section>
 
@@ -386,11 +444,32 @@ function App() {
             </select>
           </label>
           <label>
-            Reply Time
+            Reply Time Category
+            <select
+              value={form.replyTimeCategory}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  replyTimeCategory: e.target.value as ReplyTimeCategory,
+                })
+              }
+            >
+              <option value="7:00-3:30">7:00-3:30</option>
+              <option value="3:00-6:00">3:00-6:00</option>
+              <option value="After 6">After 6</option>
+              <option value="Weekend">Weekend</option>
+            </select>
+          </label>
+          <label>
+            Reply Time (minutes)
             <input
-              placeholder="(Weekend): 214"
-              value={form.replyTime}
-              onChange={(e) => setForm({ ...form, replyTime: e.target.value })}
+              type="number"
+              min={0}
+              placeholder="e.g. 25"
+              value={form.replyTimeMinutes}
+              onChange={(e) =>
+                setForm({ ...form, replyTimeMinutes: e.target.value })
+              }
             />
           </label>
           <label>
@@ -430,7 +509,8 @@ function App() {
                 <th>Type</th>
                 <th>Cost</th>
                 <th>Won</th>
-                <th>Reply Time</th>
+                <th>Reply Window</th>
+                <th>Reply (mins)</th>
                 <th>Comments</th>
                 <th />
               </tr>
@@ -444,7 +524,8 @@ function App() {
                   <td>{lead.jobType}</td>
                   <td>{lead.leadCost}</td>
                   <td>{lead.jobWon}</td>
-                  <td>{lead.replyTime}</td>
+                  <td>{lead.replyTimeCategory}</td>
+                  <td>{getReplyMinutes(lead) ?? '-'}</td>
                   <td>{lead.comments}</td>
                   <td>
                     <div className="row">
@@ -485,6 +566,24 @@ function App() {
             ))}
           </ul>
         </div>
+      </section>
+
+      <section className="card">
+        <h3>Average Reply Time by Category</h3>
+        <ul>
+          {(Object.keys(stats.avgReplyByCategory) as ReplyTimeCategory[]).map(
+            (category) => {
+              const data = stats.avgReplyByCategory[category]
+              const avg = data.count > 0 ? data.sum / data.count : 0
+              return (
+                <li key={category}>
+                  {category}: <strong>{avg.toFixed(1)} mins</strong>{' '}
+                  <small>({data.count} leads)</small>
+                </li>
+              )
+            },
+          )}
+        </ul>
       </section>
     </main>
   )
