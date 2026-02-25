@@ -154,20 +154,18 @@ const normalizeHeader = (value: string) =>
     .toLowerCase()
     .replace(/[\s_]+/g, ' ')
 
-const csvToRows = (text: string) => {
+const csvToMatrix = (text: string) => {
   const lines = text
     .split(/\r?\n/)
-    .map((l) => l.trim())
+    .map((l) => l.trimEnd())
     .filter(Boolean)
 
-  if (lines.length < 2) return [] as Record<string, string>[]
+  if (lines.length === 0) return [] as string[][]
 
   const delimiter = lines[0].includes('\t') ? '\t' : ','
 
   const parseLine = (line: string) => {
-    if (delimiter === '\t') {
-      return line.split('\t').map((v) => v.trim())
-    }
+    if (delimiter === '\t') return line.split('\t').map((v) => v.trim())
 
     const values: string[] = []
     let current = ''
@@ -193,15 +191,100 @@ const csvToRows = (text: string) => {
     return values
   }
 
-  const headers = parseLine(lines[0]).map(normalizeHeader)
+  return lines.map(parseLine)
+}
 
-  return lines.slice(1).map((line) => {
-    const cols = parseLine(line)
-    return headers.reduce<Record<string, string>>((acc, h, idx) => {
-      acc[h] = (cols[idx] ?? '').trim()
+const csvToRows = (text: string) => {
+  const matrix = csvToMatrix(text)
+  if (matrix.length < 2) return [] as Record<string, string>[]
+
+  const headers = matrix[0].map(normalizeHeader)
+
+  return matrix.slice(1).map((cols) =>
+    headers.reduce<Record<string, string>>((acc, h, idx) => {
+      acc[h] = String(cols[idx] ?? '').trim()
       return acc
-    }, {})
-  })
+    }, {}),
+  )
+}
+
+const parseScorecardToLeads = (text: string): LeadInput[] => {
+  const matrix = csvToMatrix(text)
+  if (!matrix.length) return []
+
+  const headerRow = matrix.find((row) =>
+    row.some((c) => /[A-Z]{3}:\s*\d+/i.test(c)),
+  )
+  const channelStart = matrix.findIndex((row) =>
+    row[0]?.toLowerCase().includes('channel performance'),
+  )
+  if (!headerRow || channelStart === -1) return []
+
+  const weekColumns = headerRow
+    .map((value, idx) => ({ idx, value: value.trim() }))
+    .filter((x) => /[A-Z]{3}:\s*\d+/i.test(x.value))
+
+  if (!weekColumns.length) return []
+
+  const monthMap: Record<string, number> = {
+    JAN: 1,
+    FEB: 2,
+    MAR: 3,
+    APR: 4,
+    MAY: 5,
+    JUN: 6,
+    JUL: 7,
+    AUG: 8,
+    SEP: 9,
+    OCT: 10,
+    NOV: 11,
+    DEC: 12,
+  }
+
+  const year = new Date().getFullYear()
+  const leadsOut: LeadInput[] = []
+
+  const end = matrix.findIndex(
+    (row, idx) => idx > channelStart && row[0]?.toLowerCase().includes('brand & reputation'),
+  )
+  const channelRows = matrix.slice(channelStart + 1, end === -1 ? channelStart + 8 : end)
+
+  for (const row of channelRows) {
+    const source = (row[0] || '').trim()
+    if (!source || /goal|actual/i.test(source)) continue
+
+    for (const week of weekColumns) {
+      const raw = String(row[week.idx] || '')
+      const count = Number((raw.match(/\d+/) || ['0'])[0])
+      if (!count || count < 1) continue
+
+      const weekMatch = week.value.match(/([A-Z]{3}):\s*(\d{1,2})/i)
+      const mon = weekMatch ? monthMap[weekMatch[1].toUpperCase()] : undefined
+      const day = weekMatch ? Number(weekMatch[2]) : 1
+      const date = `${year}-${String(mon || 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+
+      for (let i = 1; i <= count; i += 1) {
+        leadsOut.push({
+          date,
+          customer: `Imported ${source} Lead ${i}`,
+          leadSource: source,
+          jobType: 'Imported',
+          leadCost: '$0',
+          jobWon: 'No',
+          comments: `Imported from marketing scorecard (${week.value})`,
+          replyTimeCategory: defaultReplyCategory,
+          replyTimeMinutes: '',
+          booked: 'No',
+          sold: 'No',
+          cancelled: 'No',
+          soldAmount: '$0',
+          revenue: '$0',
+        })
+      }
+    }
+  }
+
+  return leadsOut
 }
 
 function App() {
@@ -704,6 +787,19 @@ function App() {
         importedCount += 1
       }
 
+      if (importedCount === 0 && (lowerName.endsWith('.csv') || lowerName.endsWith('.tsv'))) {
+        const scorecardLeads = parseScorecardToLeads(await file.text())
+        for (const lead of scorecardLeads) {
+          await addDoc(leadsRef, {
+            ...lead,
+            jobWon: lead.sold,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+          importedCount += 1
+        }
+      }
+
       if (importedCount === 0) {
         setImportStatus('Imported 0 rows. Make sure date + customer are present.')
       } else {
@@ -823,7 +919,7 @@ function App() {
             <div>
               <h3>Import current leads</h3>
               <p className="muted">
-                Upload CSV, XLSX, or JSON. Minimum fields: <code>date</code>, <code>customer</code>, <code>lead source</code>.
+                Upload CSV, XLSX, or JSON. Supports normal lead rows and your marketing scorecard CSV format.
               </p>
             </div>
             <label className="file-label">
