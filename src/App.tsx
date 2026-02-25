@@ -939,7 +939,7 @@ function App() {
             {importStatus && <p className="muted">{importStatus}</p>}
           </section>
 
-          <section className="card table-wrap">
+          <section className="card table-wrap leads-table">
             <h3>Leads</h3>
             <table>
               <thead>
@@ -1148,47 +1148,6 @@ function App() {
             </div>
           )}
 
-          <section className="layout">
-            <div className="card">
-              <h3>Leads by Source</h3>
-              <ul>
-                {Object.entries(stats.bySource).map(([source, count]) => (
-                  <li key={source}>
-                    {source}: <strong>{count}</strong>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="card">
-              <h3>Leads by Job Type</h3>
-              <ul>
-                {Object.entries(stats.byJobType).map(([type, count]) => (
-                  <li key={type}>
-                    {type}: <strong>{count}</strong>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </section>
-
-          <section className="card">
-            <h3>Average Reply Time by Category</h3>
-            <ul>
-              {(Object.keys(stats.avgReplyByCategory) as ReplyTimeCategory[]).map(
-                (category) => {
-                  const data = stats.avgReplyByCategory[category]
-                  const avg = data.count > 0 ? data.sum / data.count : 0
-                  return (
-                    <li key={category}>
-                      {category}: <strong>{avg.toFixed(1)} mins</strong>{' '}
-                      <small>({data.count} leads)</small>
-                    </li>
-                  )
-                },
-              )}
-            </ul>
-          </section>
         </>
       ) : (
         <>
