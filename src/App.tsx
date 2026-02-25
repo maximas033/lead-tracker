@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
 import './App.css'
 import {
   addDoc,
@@ -144,6 +144,50 @@ const toMonthValue = (date: Date) =>
 
 const weekLabel = (startDay: number, endDay: number) => `${startDay}-${endDay}`
 
+const csvToRows = (text: string) => {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  if (lines.length < 2) return [] as Record<string, string>[]
+
+  const parseLine = (line: string) => {
+    const values: string[] = []
+    let current = ''
+    let inQuotes = false
+
+    for (let i = 0; i < line.length; i += 1) {
+      const ch = line[i]
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"'
+          i += 1
+        } else {
+          inQuotes = !inQuotes
+        }
+      } else if (ch === ',' && !inQuotes) {
+        values.push(current.trim())
+        current = ''
+      } else {
+        current += ch
+      }
+    }
+    values.push(current.trim())
+    return values
+  }
+
+  const headers = parseLine(lines[0]).map((h) => h.toLowerCase())
+
+  return lines.slice(1).map((line) => {
+    const cols = parseLine(line)
+    return headers.reduce<Record<string, string>>((acc, h, idx) => {
+      acc[h] = cols[idx] ?? ''
+      return acc
+    }, {})
+  })
+}
+
 function App() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -154,6 +198,7 @@ function App() {
   const [form, setForm] = useState<LeadInput>(emptyLead)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [message, setMessage] = useState('')
+  const [importStatus, setImportStatus] = useState('')
   const [page, setPage] = useState<Page>('leads')
   const [selectedMonth, setSelectedMonth] = useState(toMonthValue(new Date()))
   const [selectedWeek, setSelectedWeek] = useState('1-7')
@@ -518,6 +563,75 @@ function App() {
     }
   }
 
+  const normalizeImportedLead = (row: Record<string, string>): LeadInput => {
+    const yesNo = (value: string): YesNo =>
+      value?.toLowerCase() === 'yes' ? 'Yes' : 'No'
+
+    return {
+      date: row.date || '',
+      customer: row.customer || row.name || '',
+      leadSource: row['lead source'] || row.leadsource || row.source || '',
+      jobType: row['job type'] || row.jobtype || '',
+      leadCost: row['lead cost'] || row.leadcost || row.cost || '$0',
+      jobWon: yesNo(row['job won'] || row.jobwon || row.sold || 'No'),
+      comments: row.comments || '',
+      replyTimeCategory:
+        (row['reply time category'] as ReplyTimeCategory) ||
+        (row.replytimecategory as ReplyTimeCategory) ||
+        defaultReplyCategory,
+      replyTimeMinutes: row['reply time minutes'] || row.replytimeminutes || '',
+      booked: yesNo(row.booked || 'No'),
+      sold: yesNo(row.sold || row['job won'] || 'No'),
+      cancelled: yesNo(row.cancelled || row.canceled || 'No'),
+      soldAmount: row['sold amount'] || row.soldamount || '$0',
+      revenue: row.revenue || '$0',
+    }
+  }
+
+  const handleFileImport = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (!user) return
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const text = await file.text()
+    const leadsRef = collection(db, 'users', user.uid, 'leads')
+
+    try {
+      let rows: Record<string, string>[] = []
+
+      if (file.name.toLowerCase().endsWith('.json')) {
+        const parsed = JSON.parse(text)
+        if (Array.isArray(parsed)) {
+          rows = parsed as Record<string, string>[]
+        }
+      } else {
+        rows = csvToRows(text)
+      }
+
+      if (rows.length === 0) {
+        setImportStatus('No rows found. Check your file format.')
+        return
+      }
+
+      for (const row of rows) {
+        const lead = normalizeImportedLead(row)
+        if (!lead.date || !lead.customer) continue
+
+        await addDoc(leadsRef, {
+          ...lead,
+          jobWon: lead.sold,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      }
+
+      setImportStatus(`Imported ${rows.length} rows from ${file.name}`)
+      e.target.value = ''
+    } catch {
+      setImportStatus('Import failed. Use CSV/JSON with matching headers.')
+    }
+  }
+
   if (loading) return <main className="container">Loading...</main>
 
   if (!user) {
@@ -614,6 +728,20 @@ function App() {
               <h2>Avg Reply Time</h2>
               <strong>{stats.avgReplyTime.toFixed(1)} mins</strong>
             </article>
+          </section>
+
+          <section className="card import-card">
+            <div>
+              <h3>Import current leads</h3>
+              <p className="muted">
+                Upload CSV or JSON. Minimum fields: <code>date</code>, <code>customer</code>, <code>lead source</code>.
+              </p>
+            </div>
+            <label className="file-label">
+              <span>Choose file</span>
+              <input type="file" accept=".csv,.json" onChange={handleFileImport} />
+            </label>
+            {importStatus && <p className="muted">{importStatus}</p>}
           </section>
 
           <section className="layout">
