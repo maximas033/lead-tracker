@@ -406,6 +406,7 @@ function App() {
           soldAmount: number
           revenue: number
           fiveXReturn: number
+          roasX: number
         }>,
         totals: {
           spend: 0,
@@ -472,6 +473,7 @@ function App() {
         ...data,
         cpl: data.leads > 0 ? data.spend / data.leads : 0,
         fiveXReturn: data.spend * 5,
+        roasX: data.spend > 0 ? data.revenue / data.spend : 0,
       }))
       .sort((a, b) => b.spend - a.spend)
 
@@ -521,6 +523,30 @@ function App() {
 
     return { cpl, costPerBooked, roasX, bookingRate, closeRate, cancellingRate }
   }, [weekly.totals])
+
+  const budgetGuidance = useMemo(() => {
+    return [...weekly.rows]
+      .map((row) => {
+        const ratioTo5x = row.fiveXReturn > 0 ? row.revenue / row.fiveXReturn : 0
+        let action = 'Hold'
+        if (row.spend <= 0 || row.leads <= 0) {
+          action = 'Test small budget'
+        } else if (row.roasX >= 5 && row.sold >= 1) {
+          action = 'Scale budget'
+        } else if (row.roasX >= 3) {
+          action = 'Optimize then scale'
+        } else {
+          action = 'Reduce / fix funnel'
+        }
+
+        return {
+          ...row,
+          ratioTo5x,
+          action,
+        }
+      })
+      .sort((a, b) => b.roasX - a.roasX)
+  }, [weekly.rows])
 
   const handleAuth = async (e: FormEvent) => {
     e.preventDefault()
@@ -1127,6 +1153,7 @@ function App() {
                   <th>SOLD</th>
                   <th>Revenue</th>
                   <th>5X Return</th>
+                  <th>ROAS (X)</th>
                 </tr>
               </thead>
               <tbody>
@@ -1142,6 +1169,7 @@ function App() {
                     <td>{money(row.soldAmount)}</td>
                     <td>{money(row.revenue)}</td>
                     <td>{money(row.fiveXReturn)}</td>
+                    <td>{row.roasX.toFixed(2)}</td>
                   </tr>
                 ))}
                 <tr>
@@ -1178,6 +1206,13 @@ function App() {
                   </td>
                   <td>
                     <strong>{money(weekly.totals.spend * 5)}</strong>
+                  </td>
+                  <td>
+                    <strong>
+                      {weekly.totals.spend > 0
+                        ? (weekly.totals.revenue / weekly.totals.spend).toFixed(2)
+                        : '0.00'}
+                    </strong>
                   </td>
                 </tr>
               </tbody>
@@ -1222,6 +1257,36 @@ function App() {
                 {Math.round(weekly.totals.avgReplyMins % 60)}min
               </strong>
             </article>
+          </section>
+
+          <section className="card">
+            <h3>Budget Guidance by Lead Source (based on 5X target)</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Lead Source</th>
+                  <th>Spend</th>
+                  <th>Revenue</th>
+                  <th>ROAS (X)</th>
+                  <th>Vs 5X Target</th>
+                  <th>Recommendation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {budgetGuidance.map((row) => (
+                  <tr key={`${row.source}-guidance`}>
+                    <td>{row.source}</td>
+                    <td>{money(row.spend)}</td>
+                    <td>{money(row.revenue)}</td>
+                    <td>{row.roasX.toFixed(2)}</td>
+                    <td>{(row.ratioTo5x * 100).toFixed(0)}%</td>
+                    <td>
+                      <strong>{row.action}</strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </section>
         </>
       )}
