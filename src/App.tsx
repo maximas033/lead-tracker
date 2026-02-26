@@ -904,16 +904,11 @@ function App() {
                 <tr>
                   <th>Date</th>
                   <th>Customer</th>
-                  <th>Source</th>
-                  <th>Type</th>
-                  <th>Cost</th>
                   <th>Booked</th>
                   <th>Sold</th>
                   <th>Cancelled</th>
                   <th>Sold $</th>
                   <th>Revenue</th>
-                  <th>Reply Window</th>
-                  <th>Reply (mins)</th>
                   <th>Comments</th>
                   <th />
                 </tr>
@@ -923,16 +918,11 @@ function App() {
                   <tr key={lead.id}>
                     <td>{lead.date}</td>
                     <td>{lead.customer}</td>
-                    <td>{lead.leadSource}</td>
-                    <td>{lead.jobType}</td>
-                    <td>{lead.leadCost}</td>
                     <td>{lead.booked}</td>
                     <td>{lead.sold}</td>
                     <td>{lead.cancelled}</td>
                     <td>{lead.soldAmount}</td>
                     <td>{lead.revenue}</td>
-                    <td>{lead.replyTimeCategory}</td>
-                    <td>{getReplyMinutes(lead) ?? '-'}</td>
                     <td>{lead.comments}</td>
                     <td>
                       <div className="row">
@@ -981,30 +971,6 @@ function App() {
                     />
                   </label>
                   <label>
-                    Lead Source
-                    <input
-                      required
-                      value={form.leadSource}
-                      onChange={(e) => setForm({ ...form, leadSource: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Job Type
-                    <input
-                      required
-                      value={form.jobType}
-                      onChange={(e) => setForm({ ...form, jobType: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Lead Cost
-                    <input
-                      placeholder="$0"
-                      value={form.leadCost}
-                      onChange={(e) => setForm({ ...form, leadCost: e.target.value })}
-                    />
-                  </label>
-                  <label>
                     Booked
                     <select
                       value={form.booked}
@@ -1048,33 +1014,6 @@ function App() {
                       placeholder="$0"
                       value={form.revenue}
                       onChange={(e) => setForm({ ...form, revenue: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Reply Time Category
-                    <select
-                      value={form.replyTimeCategory}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          replyTimeCategory: e.target.value as ReplyTimeCategory,
-                        })
-                      }
-                    >
-                      <option value="7:00-3:30">7:00-3:30</option>
-                      <option value="3:00-6:00">3:00-6:00</option>
-                      <option value="After 6">After 6</option>
-                      <option value="Weekend">Weekend</option>
-                    </select>
-                  </label>
-                  <label>
-                    Reply Time (minutes)
-                    <input
-                      type="number"
-                      min={0}
-                      placeholder="e.g. 25"
-                      value={form.replyTimeMinutes}
-                      onChange={(e) => setForm({ ...form, replyTimeMinutes: e.target.value })}
                     />
                   </label>
                   <label>
