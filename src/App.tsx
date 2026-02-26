@@ -69,57 +69,6 @@ const emptyLead: LeadInput = {
   revenue: '',
 }
 
-const starterLeads: LeadInput[] = [
-  {
-    date: '2026-02-01',
-    customer: 'Jordan Hancock',
-    leadSource: 'Website Form Submission',
-    jobType: 'Consultation',
-    leadCost: '$0',
-    jobWon: 'Yes',
-    comments: 'Hold wants to cancel',
-    replyTimeCategory: '7:00-3:30',
-    replyTimeMinutes: '30',
-    booked: 'Yes',
-    sold: 'Yes',
-    cancelled: 'No',
-    soldAmount: '$350',
-    revenue: '$1800',
-  },
-  {
-    date: '2026-02-01',
-    customer: 'Curtis L.',
-    leadSource: 'Yelp',
-    jobType: 'Service',
-    leadCost: '$0',
-    jobWon: 'No',
-    comments: 'Customer said, "Sorry, I no longer need this service"',
-    replyTimeCategory: 'Weekend',
-    replyTimeMinutes: '214',
-    booked: 'No',
-    sold: 'No',
-    cancelled: 'No',
-    soldAmount: '$0',
-    revenue: '$0',
-  },
-  {
-    date: '2026-02-01',
-    customer: 'Jun Trinos',
-    leadSource: 'Yelp',
-    jobType: 'Service',
-    leadCost: '$0',
-    jobWon: 'No',
-    comments: 'Building energy audit - Broken waterheater',
-    replyTimeCategory: 'Weekend',
-    replyTimeMinutes: '1',
-    booked: 'No',
-    sold: 'No',
-    cancelled: 'No',
-    soldAmount: '$0',
-    revenue: '$0',
-  },
-]
-
 const parseMoney = (value: string) => {
   const num = Number(value.replace(/[^\d.-]/g, ''))
   return Number.isFinite(num) ? num : 0
@@ -658,19 +607,6 @@ function App() {
     await deleteDoc(doc(leadsRef, id))
   }
 
-  const seedData = async () => {
-    if (!user) return
-    const leadsRef = collection(db, 'users', user.uid, 'leads')
-
-    for (const lead of starterLeads) {
-      await addDoc(leadsRef, {
-        ...lead,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      })
-    }
-  }
-
   const deleteAllLeads = async () => {
     if (!user) return
     const ok = window.confirm('Delete ALL leads? This cannot be undone.')
@@ -873,25 +809,21 @@ function App() {
       <header className="header">
         <h1>Lead Tracker Dashboard</h1>
         <div className="header-actions">
-          <button
-            className={page === 'leads' ? '' : 'ghost'}
-            onClick={() => setPage('leads')}
-          >
-            Leads
-          </button>
-          <button
-            className={page === 'weekly-dashboard' ? '' : 'ghost'}
-            onClick={() => setPage('weekly-dashboard')}
-          >
-            Weekly Dashboard
-          </button>
-          <button onClick={openNewLeadModal}>Add lead</button>
-          <button className="ghost" onClick={seedData}>
-            Load sample leads
-          </button>
-          <button className="danger" onClick={deleteAllLeads}>
-            Delete all leads
-          </button>
+          {page === 'leads' ? (
+            <>
+              <button className="ghost" onClick={() => setPage('weekly-dashboard')}>
+                Weekly Dashboard
+              </button>
+              <button onClick={openNewLeadModal}>Add Lead</button>
+              <button className="danger" onClick={deleteAllLeads}>
+                Delete all leads
+              </button>
+            </>
+          ) : (
+            <button className="ghost" onClick={() => setPage('leads')}>
+              ← Back to Leads
+            </button>
+          )}
           <button className="ghost" onClick={() => signOut(auth)}>
             Logout
           </button>
