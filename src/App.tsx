@@ -811,10 +811,10 @@ function App() {
         <div className="header-actions">
           {page === 'leads' ? (
             <>
+              <button onClick={openNewLeadModal}>Add Lead</button>
               <button className="ghost" onClick={() => setPage('weekly-dashboard')}>
                 Weekly Dashboard
               </button>
-              <button onClick={openNewLeadModal}>Add Lead</button>
               <button className="danger" onClick={deleteAllLeads}>
                 Delete all leads
               </button>
