@@ -1109,6 +1109,14 @@ function App() {
         </>
       ) : (
         <>
+          <section className="card dashboard-hero">
+            <div>
+              <p className="muted">Performance View</p>
+              <h2>Weekly Marketing Dashboard</h2>
+            </div>
+            <div className="hero-pill">Target ROAS: 5X</div>
+          </section>
+
           <section className="card filter-row">
             <label>
               Month
@@ -1219,7 +1227,7 @@ function App() {
             </table>
           </section>
 
-          <section className="stats-grid">
+          <section className="stats-grid weekly-kpis">
             <article className="stat-card">
               <h2>CPL</h2>
               <strong>
@@ -1281,7 +1289,13 @@ function App() {
                     <td>{row.roasX.toFixed(2)}</td>
                     <td>{(row.ratioTo5x * 100).toFixed(0)}%</td>
                     <td>
-                      <strong>{row.action}</strong>
+                      <span
+                        className={`action-badge ${row.action
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, '-')}`}
+                      >
+                        {row.action}
+                      </span>
                     </td>
                   </tr>
                 ))}

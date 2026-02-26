@@ -212,8 +212,35 @@ ul {
   display: flex;
   gap: 1rem;
   align-items: end;
-  margin-bottom: 1rem;
+  margin-bottom: 0.8rem;
   flex-wrap: wrap;
+}
+
+.dashboard-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
+}
+
+.dashboard-hero h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.hero-pill {
+  border: 1px solid #34d39988;
+  background: #34d39922;
+  color: #d1fae5;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.weekly-kpis .stat-card {
+  border: 1px solid #ffffff22;
+  background: linear-gradient(160deg, #0ea5e91f, #8b5cf621);
 }
 
 .import-card {
@@ -281,4 +308,38 @@ code {
 
 .modal-head h3 {
   margin: 0;
+}
+
+.action-badge {
+  display: inline-block;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid #ffffff35;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.action-badge.scale-budget {
+  background: #22c55e33;
+  color: #dcfce7;
+  border-color: #22c55e7a;
+}
+
+.action-badge.optimize-then-scale {
+  background: #f59e0b2b;
+  color: #fef3c7;
+  border-color: #f59e0b7a;
+}
+
+.action-badge.reduce-fix-funnel {
+  background: #ef444433;
+  color: #fee2e2;
+  border-color: #ef44447a;
+}
+
+.action-badge.test-small-budget,
+.action-badge.hold {
+  background: #60a5fa2b;
+  color: #dbeafe;
+  border-color: #60a5fa7a;
 }
