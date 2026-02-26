@@ -96,6 +96,22 @@ const toMonthValue = (date: Date) =>
 
 const weekLabel = (startDay: number, endDay: number) => `${startDay}-${endDay}`
 
+const toSparklinePoints = (values: number[], width = 560, height = 160) => {
+  if (!values.length) return ''
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const stepX = values.length > 1 ? width / (values.length - 1) : width
+
+  return values
+    .map((v, i) => {
+      const x = i * stepX
+      const y = height - ((v - min) / span) * height
+      return `${x},${y}`
+    })
+    .join(' ')
+}
+
 const normalizeHeader = (value: string) =>
   value
     .replace(/^\uFEFF/, '')
@@ -457,6 +473,30 @@ function App() {
       revenuePerSold,
     }
   }, [weekly.totals])
+
+  const weeklyChart = useMemo(() => {
+    const byDay = weekly.leads.reduce<
+      Record<string, { leads: number; revenue: number }>
+    >((acc, lead) => {
+      const key = lead.date
+      if (!acc[key]) acc[key] = { leads: 0, revenue: 0 }
+      acc[key].leads += 1
+      acc[key].revenue += parseMoney(lead.revenue)
+      return acc
+    }, {})
+
+    const labels = Object.keys(byDay).sort((a, b) => a.localeCompare(b))
+    const leadsSeries = labels.map((k) => byDay[k].leads)
+    const revenueSeries = labels.map((k) => byDay[k].revenue)
+
+    return {
+      labels,
+      leadsSeries,
+      revenueSeries,
+      leadsPoints: toSparklinePoints(leadsSeries),
+      revenuePoints: toSparklinePoints(revenueSeries),
+    }
+  }, [weekly.leads])
 
   const handleAuth = async (e: FormEvent) => {
     e.preventDefault()
@@ -1039,6 +1079,34 @@ function App() {
             <article className="stat-card">
               <h2>Revenue / Sold Lead</h2>
               <strong>{money(weeklyRatios.revenuePerSold)}</strong>
+            </article>
+          </section>
+
+          <section className="charts-grid">
+            <article className="card chart-card">
+              <div className="chart-head">
+                <h3>Leads Trend</h3>
+                <span>{weeklyChart.leadsSeries.reduce((a, b) => a + b, 0)} leads</span>
+              </div>
+              <svg viewBox="0 0 560 180" className="chart-svg" role="img" aria-label="Leads trend line chart">
+                <line x1="0" y1="180" x2="560" y2="180" className="axis" />
+                {weeklyChart.leadsPoints ? (
+                  <polyline points={weeklyChart.leadsPoints} className="line line-leads" fill="none" />
+                ) : null}
+              </svg>
+            </article>
+
+            <article className="card chart-card">
+              <div className="chart-head">
+                <h3>Revenue Trend</h3>
+                <span>{money(weeklyChart.revenueSeries.reduce((a, b) => a + b, 0))}</span>
+              </div>
+              <svg viewBox="0 0 560 180" className="chart-svg" role="img" aria-label="Revenue trend line chart">
+                <line x1="0" y1="180" x2="560" y2="180" className="axis" />
+                {weeklyChart.revenuePoints ? (
+                  <polyline points={weeklyChart.revenuePoints} className="line line-revenue" fill="none" />
+                ) : null}
+              </svg>
             </article>
           </section>
 

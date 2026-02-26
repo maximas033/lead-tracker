@@ -1,10 +1,7 @@
 :root {
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   color: #eaf2ff;
-  background:
-    radial-gradient(1000px 500px at 8% -10%, #5eead477 0%, transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, #7c3aed55 0%, transparent 50%),
-    linear-gradient(135deg, #071024 0%, #0d1530 45%, #111a3d 100%);
+  background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
 }
 
 * {
@@ -59,13 +56,11 @@ body {
 }
 
 .card {
-  background: linear-gradient(160deg, #ffffff20, #ffffff10);
-  border: 1px solid #ffffff2b;
-  border-radius: 18px;
+  background: #111a2e;
+  border: 1px solid #1f2b46;
+  border-radius: 16px;
   padding: 1rem;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 10px 30px #00000030;
+  box-shadow: 0 8px 24px #00000033;
 }
 
 .stats-grid {
@@ -135,10 +130,10 @@ textarea::placeholder {
 }
 
 button {
-  border: 1px solid #6ee7b7a8;
+  border: 1px solid #334a78;
   border-radius: 10px;
   padding: 0.55rem 0.95rem;
-  background: linear-gradient(135deg, #22d3ee, #7c3aed);
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
   color: white;
   cursor: pointer;
   font-weight: 600;
@@ -150,9 +145,9 @@ button:hover {
 }
 
 button.ghost {
-  background: #ffffff17;
-  border-color: #ffffff33;
-  color: #eff6ff;
+  background: #17233c;
+  border-color: #2a3a5d;
+  color: #dbeafe;
 }
 
 button.danger {
@@ -342,4 +337,55 @@ code {
   background: #60a5fa2b;
   color: #dbeafe;
   border-color: #60a5fa7a;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 0.8rem;
+}
+
+.chart-card {
+  padding: 0.9rem;
+}
+
+.chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.chart-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.chart-head span {
+  color: #bfdbfe;
+  font-size: 0.85rem;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 180px;
+}
+
+.axis {
+  stroke: #334155;
+  stroke-width: 1;
+}
+
+.line {
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.line-leads {
+  stroke: #38bdf8;
+}
+
+.line-revenue {
+  stroke: #34d399;
 }
