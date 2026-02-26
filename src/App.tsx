@@ -395,158 +395,68 @@ function App() {
 
     if (!year || !month || !startDay || !endDay) {
       return {
-        rows: [] as Array<{
-          source: string
-          spend: number
-          leads: number
-          booked: number
-          sold: number
-          cancelled: number
-          cpl: number
-          soldAmount: number
-          revenue: number
-          fiveXReturn: number
-          roasX: number
-        }>,
+        leads: [] as Lead[],
         totals: {
-          spend: 0,
           leads: 0,
           booked: 0,
           sold: 0,
           cancelled: 0,
           soldAmount: 0,
           revenue: 0,
-          avgReplyMins: 0,
         },
       }
     }
 
-    const filtered = leads.filter((lead) => {
-      const d = new Date(`${lead.date}T00:00:00`)
-      if (Number.isNaN(d.getTime())) return false
-      const y = d.getFullYear()
-      const m = d.getMonth() + 1
-      const day = d.getDate()
-      return y === year && m === month && day >= startDay && day <= endDay
-    })
+    const filtered = leads
+      .filter((lead) => {
+        const d = new Date(`${lead.date}T00:00:00`)
+        if (Number.isNaN(d.getTime())) return false
+        const y = d.getFullYear()
+        const m = d.getMonth() + 1
+        const day = d.getDate()
+        return y === year && m === month && day >= startDay && day <= endDay
+      })
+      .sort((a, b) => a.date.localeCompare(b.date))
 
-    const grouped = filtered.reduce<
-      Record<
-        string,
-        {
-          spend: number
-          leads: number
-          booked: number
-          sold: number
-          cancelled: number
-          soldAmount: number
-          revenue: number
-        }
-      >
-    >((acc, lead) => {
-      const key = lead.leadSource || 'Unknown'
-      if (!acc[key]) {
-        acc[key] = {
-          spend: 0,
-          leads: 0,
-          booked: 0,
-          sold: 0,
-          cancelled: 0,
-          soldAmount: 0,
-          revenue: 0,
-        }
-      }
-
-      acc[key].spend += parseMoney(lead.leadCost)
-      acc[key].leads += 1
-      if (lead.booked === 'Yes') acc[key].booked += 1
-      if (lead.sold === 'Yes') acc[key].sold += 1
-      if (lead.cancelled === 'Yes') acc[key].cancelled += 1
-      acc[key].soldAmount += parseMoney(lead.soldAmount)
-      acc[key].revenue += parseMoney(lead.revenue)
-      return acc
-    }, {})
-
-    const rows = Object.entries(grouped)
-      .map(([source, data]) => ({
-        source,
-        ...data,
-        cpl: data.leads > 0 ? data.spend / data.leads : 0,
-        fiveXReturn: data.spend * 5,
-        roasX: data.spend > 0 ? data.revenue / data.spend : 0,
-      }))
-      .sort((a, b) => b.spend - a.spend)
-
-    const totals = rows.reduce(
-      (acc, row) => {
-        acc.spend += row.spend
-        acc.leads += row.leads
-        acc.booked += row.booked
-        acc.sold += row.sold
-        acc.cancelled += row.cancelled
-        acc.soldAmount += row.soldAmount
-        acc.revenue += row.revenue
+    const totals = filtered.reduce(
+      (acc, lead) => {
+        acc.leads += 1
+        if (lead.booked === 'Yes') acc.booked += 1
+        if (lead.sold === 'Yes') acc.sold += 1
+        if (lead.cancelled === 'Yes') acc.cancelled += 1
+        acc.soldAmount += parseMoney(lead.soldAmount)
+        acc.revenue += parseMoney(lead.revenue)
         return acc
       },
       {
-        spend: 0,
         leads: 0,
         booked: 0,
         sold: 0,
         cancelled: 0,
         soldAmount: 0,
         revenue: 0,
-        avgReplyMins: 0,
       },
     )
 
-    const weeklyReply = filtered
-      .map((lead) => getReplyMinutes(lead))
-      .filter((v): v is number => v !== null)
-
-    totals.avgReplyMins =
-      weeklyReply.length > 0
-        ? weeklyReply.reduce((a, b) => a + b, 0) / weeklyReply.length
-        : 0
-
-    return { rows, totals }
+    return { leads: filtered, totals }
   }, [leads, selectedMonth, selectedWeek])
 
   const weeklyRatios = useMemo(() => {
     const t = weekly.totals
-    const cpl = t.leads > 0 ? t.spend / t.leads : 0
-    const costPerBooked = t.booked > 0 ? t.spend / t.booked : 0
-    const roasX = t.spend > 0 ? t.soldAmount / t.spend : 0
     const bookingRate = t.leads > 0 ? t.booked / t.leads : 0
     const closeRate = t.booked > 0 ? t.sold / t.booked : 0
     const cancellingRate = t.booked > 0 ? t.cancelled / t.booked : 0
+    const revenuePerLead = t.leads > 0 ? t.revenue / t.leads : 0
+    const revenuePerSold = t.sold > 0 ? t.revenue / t.sold : 0
 
-    return { cpl, costPerBooked, roasX, bookingRate, closeRate, cancellingRate }
+    return {
+      bookingRate,
+      closeRate,
+      cancellingRate,
+      revenuePerLead,
+      revenuePerSold,
+    }
   }, [weekly.totals])
-
-  const budgetGuidance = useMemo(() => {
-    return [...weekly.rows]
-      .map((row) => {
-        const ratioTo5x = row.fiveXReturn > 0 ? row.revenue / row.fiveXReturn : 0
-        let action = 'Hold'
-        if (row.spend <= 0 || row.leads <= 0) {
-          action = 'Test small budget'
-        } else if (row.roasX >= 5 && row.sold >= 1) {
-          action = 'Scale budget'
-        } else if (row.roasX >= 3) {
-          action = 'Optimize then scale'
-        } else {
-          action = 'Reduce / fix funnel'
-        }
-
-        return {
-          ...row,
-          ratioTo5x,
-          action,
-        }
-      })
-      .sort((a, b) => b.roasX - a.roasX)
-  }, [weekly.rows])
 
   const handleAuth = async (e: FormEvent) => {
     e.preventDefault()
@@ -1085,105 +995,22 @@ function App() {
             </div>
           </section>
 
-          <section className="card table-wrap">
-            <h3>Weekly Source Performance</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Lead Source</th>
-                  <th>Spend</th>
-                  <th># of Leads</th>
-                  <th>Booked Leads</th>
-                  <th>Sold Leads</th>
-                  <th>Cancelled</th>
-                  <th>CPL</th>
-                  <th>SOLD</th>
-                  <th>Revenue</th>
-                  <th>5X Return</th>
-                  <th>ROAS (X)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {weekly.rows.map((row) => (
-                  <tr key={row.source}>
-                    <td>{row.source}</td>
-                    <td>{money(row.spend)}</td>
-                    <td>{row.leads}</td>
-                    <td>{row.booked}</td>
-                    <td>{row.sold}</td>
-                    <td>{row.cancelled}</td>
-                    <td>{row.leads > 0 ? money(row.cpl) : '#DIV/0!'}</td>
-                    <td>{money(row.soldAmount)}</td>
-                    <td>{money(row.revenue)}</td>
-                    <td>{money(row.fiveXReturn)}</td>
-                    <td>{row.roasX.toFixed(2)}</td>
-                  </tr>
-                ))}
-                <tr>
-                  <td>
-                    <strong>TOTAL</strong>
-                  </td>
-                  <td>
-                    <strong>{money(weekly.totals.spend)}</strong>
-                  </td>
-                  <td>
-                    <strong>{weekly.totals.leads}</strong>
-                  </td>
-                  <td>
-                    <strong>{weekly.totals.booked}</strong>
-                  </td>
-                  <td>
-                    <strong>{weekly.totals.sold}</strong>
-                  </td>
-                  <td>
-                    <strong>{weekly.totals.cancelled}</strong>
-                  </td>
-                  <td>
-                    <strong>
-                      {weekly.totals.leads > 0
-                        ? money(weeklyRatios.cpl)
-                        : '#DIV/0!'}
-                    </strong>
-                  </td>
-                  <td>
-                    <strong>{money(weekly.totals.soldAmount)}</strong>
-                  </td>
-                  <td>
-                    <strong>{money(weekly.totals.revenue)}</strong>
-                  </td>
-                  <td>
-                    <strong>{money(weekly.totals.spend * 5)}</strong>
-                  </td>
-                  <td>
-                    <strong>
-                      {weekly.totals.spend > 0
-                        ? (weekly.totals.revenue / weekly.totals.spend).toFixed(2)
-                        : '0.00'}
-                    </strong>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-
           <section className="stats-grid weekly-kpis">
             <article className="stat-card">
-              <h2>CPL</h2>
-              <strong>
-                {weekly.totals.leads > 0 ? money(weeklyRatios.cpl) : '#DIV/0!'}
-              </strong>
+              <h2>Total Leads</h2>
+              <strong>{weekly.totals.leads}</strong>
             </article>
             <article className="stat-card">
-              <h2>Cost per booked</h2>
-              <strong>
-                {weekly.totals.booked > 0
-                  ? money(weeklyRatios.costPerBooked)
-                  : '#DIV/0!'}
-              </strong>
+              <h2>Booked Leads</h2>
+              <strong>{weekly.totals.booked}</strong>
             </article>
             <article className="stat-card">
-              <h2>Return on Ad Spend (X)</h2>
-              <strong>{weeklyRatios.roasX.toFixed(2)}</strong>
+              <h2>Sold Leads</h2>
+              <strong>{weekly.totals.sold}</strong>
+            </article>
+            <article className="stat-card">
+              <h2>Cancelled</h2>
+              <strong>{weekly.totals.cancelled}</strong>
             </article>
             <article className="stat-card">
               <h2>Booking Rate</h2>
@@ -1194,48 +1021,53 @@ function App() {
               <strong>{percent(weeklyRatios.closeRate)}</strong>
             </article>
             <article className="stat-card">
-              <h2>Cancelling Rate</h2>
+              <h2>Cancellation Rate</h2>
               <strong>{percent(weeklyRatios.cancellingRate)}</strong>
             </article>
             <article className="stat-card">
-              <h2>Response Time (STL)</h2>
-              <strong>
-                {Math.floor(weekly.totals.avgReplyMins / 60)}hr{' '}
-                {Math.round(weekly.totals.avgReplyMins % 60)}min
-              </strong>
+              <h2>Total Sold $</h2>
+              <strong>{money(weekly.totals.soldAmount)}</strong>
+            </article>
+            <article className="stat-card">
+              <h2>Total Revenue</h2>
+              <strong>{money(weekly.totals.revenue)}</strong>
+            </article>
+            <article className="stat-card">
+              <h2>Revenue / Lead</h2>
+              <strong>{money(weeklyRatios.revenuePerLead)}</strong>
+            </article>
+            <article className="stat-card">
+              <h2>Revenue / Sold Lead</h2>
+              <strong>{money(weeklyRatios.revenuePerSold)}</strong>
             </article>
           </section>
 
-          <section className="card">
-            <h3>Budget Guidance by Lead Source (based on 5X target)</h3>
+          <section className="card table-wrap">
+            <h3>Weekly Lead List</h3>
             <table>
               <thead>
                 <tr>
-                  <th>Lead Source</th>
-                  <th>Spend</th>
+                  <th>Date</th>
+                  <th>Customer</th>
+                  <th>Booked</th>
+                  <th>Sold</th>
+                  <th>Cancelled</th>
+                  <th>Sold $</th>
                   <th>Revenue</th>
-                  <th>ROAS (X)</th>
-                  <th>Vs 5X Target</th>
-                  <th>Recommendation</th>
+                  <th>Comments</th>
                 </tr>
               </thead>
               <tbody>
-                {budgetGuidance.map((row) => (
-                  <tr key={`${row.source}-guidance`}>
-                    <td>{row.source}</td>
-                    <td>{money(row.spend)}</td>
-                    <td>{money(row.revenue)}</td>
-                    <td>{row.roasX.toFixed(2)}</td>
-                    <td>{(row.ratioTo5x * 100).toFixed(0)}%</td>
-                    <td>
-                      <span
-                        className={`action-badge ${row.action
-                          .toLowerCase()
-                          .replace(/[^a-z0-9]+/g, '-')}`}
-                      >
-                        {row.action}
-                      </span>
-                    </td>
+                {weekly.leads.map((lead) => (
+                  <tr key={`weekly-${lead.id}`}>
+                    <td>{lead.date}</td>
+                    <td>{lead.customer}</td>
+                    <td>{lead.booked}</td>
+                    <td>{lead.sold}</td>
+                    <td>{lead.cancelled}</td>
+                    <td>{lead.soldAmount}</td>
+                    <td>{lead.revenue}</td>
+                    <td>{lead.comments}</td>
                   </tr>
                 ))}
               </tbody>
